@@ -58,15 +58,7 @@ def precipitation():
 
 @app.route("/api/v1.0/stations")
 def stations():
-    comment = '''
-        --Station:
-        id INTEGER
-        station TEXT
-        name TEXT
-        latitude FLOAT
-        longitude FLOAT
-        elevation FLOAT
-        '''
+
     stat = session.query(Station).all()
     stations = stat.copy()
     station_list = []
@@ -79,7 +71,60 @@ def stations():
 
 @app.route("/api/v1.0/tobs")
 def tobs():
-    return "wassap world"
+    latest_date, = session.query(Measurement.date).order_by(Measurement.date.desc()).first()
+    latest_date_dt = dt.datetime.strptime(latest_date, '%Y-%m-%d')
+
+    from dateutil.relativedelta import relativedelta
+
+    def yearsago(years, from_date=None):
+        if from_date is None:
+            from_date = datetime.now()
+        return from_date - relativedelta(years=years)
+
+    year_ago_dt = yearsago(1, from_date=latest_date_dt)
+    year_ago = year_ago_dt.strftime('%Y-%m-%d')
+
+    # Perform a query to retrieve the temperature data
+    year_ago_query = session.query(func.min(Measurement.tobs)\
+                             ,func.max(Measurement.tobs)\
+                             ,func.avg(Measurement.tobs))\
+                            .filter(Measurement.date > year_ago).all()
+    
+    temp_dict = { 'Min Temperature:': year_ago_query[0][0],
+            'Max Temperature:': year_ago_query[0][1],
+            'Avg Temperature:': year_ago_query[0][2]}
+            
+    return jsonify(temp_dict)
 
 if __name__ == '__main__':
     app.run(debug=True)
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+   
