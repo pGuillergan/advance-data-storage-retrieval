@@ -7,12 +7,17 @@ from sqlalchemy import create_engine, func
 
 from flask import Flask, jsonify
 
-engine = create_engine("sqlite:///Resources/hawaii.sqlite", echo=False)
+import datetime as dt
+
+engine = create_engine("sqlite:///Resources/hawaii.sqlite")
 
 Base = automap_base()
 Base.prepare(engine, reflect=True)
 
 session = Session(engine)
+
+Measurement = Base.classes.measurement
+Station = Base.classes.station
 
 app = Flask(__name__)
 
@@ -30,12 +35,47 @@ def welcome():
 
 @app.route("/api/v1.0/precipitation")
 def precipitation():
-    return "Hello world" 
+    latest_date, = session.query(Measurement.date).order_by(Measurement.date.desc()).first()
+    latest_date_dt = dt.datetime.strptime(latest_date, '%Y-%m-%d')
 
+    from dateutil.relativedelta import relativedelta
+
+    def yearsago(years, from_date=None):
+        if from_date is None:
+            from_date = datetime.now()
+        return from_date - relativedelta(years=years)
+
+    year_ago_dt = yearsago(1, from_date=latest_date_dt)
+    year_ago = year_ago_dt.strftime('%Y-%m-%d')
+
+    # Perform a query to retrieve the data and precipitation scores
+    year_ago_query = session.query(Measurement.date, Measurement.prcp).\
+        filter(Measurement.date > year_ago).\
+        order_by(Measurement.date).all()
+    YA_dict = dict(year_ago_query)
+    
+    return jsonify(YA_dict) 
 
 @app.route("/api/v1.0/stations")
 def stations():
-    return "Hi world"
+    comment = '''
+        --Station:
+        id INTEGER
+        station TEXT
+        name TEXT
+        latitude FLOAT
+        longitude FLOAT
+        elevation FLOAT
+        '''
+    stat = session.query(Station).all()
+    stations = stat.copy()
+    station_list = []
+    for i in stations:
+        temp_dict = i.__dict__
+        del temp_dict['_sa_instance_state']
+        station_list.append(temp_dict)
+    
+    return jsonify(station_list)
 
 @app.route("/api/v1.0/tobs")
 def tobs():
