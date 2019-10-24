@@ -19,17 +19,35 @@ session = Session(engine)
 Measurement = Base.classes.measurement
 Station = Base.classes.station
 
+def calc_temps(start_date, end_date):
+    return session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+        filter(Measurement.date >= start_date).filter(Measurement.date <= end_date).all()
+# function usage example
+# print(calc_temps('2012-02-28', '2012-03-05'))
+
+
 app = Flask(__name__)
 
 
 @app.route("/")
 def welcome():
     """List all available api routes."""
+
     return (
+        f"------------------------------<br/>"
         f"Available Routes:<br/>"
+        f"------------------------------<br/>"
         f"/api/v1.0/precipitation<br/>"
         f"/api/v1.0/stations<br/>"
         f"/api/v1.0/tobs<br/>"
+        f"<br/>"
+        f"------------------------------<br/>"
+        f"For the following routes please use this date format:<br/>"
+        f"YYYY-MM-DD<br/>"
+        f"ex: http://127.0.0.1:5000/api/v1.0/2012-02-28/2012-03-05<br/>"
+        f"------------------------------<br/>"
+        f"/api/v1.0/{{start date}}<br/>"
+        f"/api/v1.0/{{start date}}/{{end date}}<br/>"
     )
 
 
@@ -94,6 +112,25 @@ def tobs():
             'Max Temperature:': year_ago_query[0][1],
             'Avg Temperature:': year_ago_query[0][2]}
             
+    return jsonify(temp_dict)
+
+
+@app.route("/api/v1.0/<date1>")
+def fromdate(date1):
+
+    latest_date, = session.query(Measurement.date).order_by(Measurement.date.desc()).first()
+
+    temps = calc_temps(date1, latest_date)
+    temp_dict = {'Min Temp':temps[0][0], 'Avg Temp':temps[0][1], 'Max Temp':temps[0][2]}
+
+    return jsonify(temp_dict)
+
+@app.route("/api/v1.0/<date1>/<date2>")
+def fromtodate(date1, date2):
+
+    temps = calc_temps(date1, date2)
+    temp_dict = {'Min Temp':temps[0][0], 'Avg Temp':temps[0][1], 'Max Temp':temps[0][2]}
+
     return jsonify(temp_dict)
 
 if __name__ == '__main__':
